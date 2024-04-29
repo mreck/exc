@@ -1,6 +1,7 @@
 #ifndef EXC_STRING
 #define EXC_STRING
 
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct {
@@ -24,16 +25,32 @@ int exc_sv_index_of(EXC_String_View sv, char c);
 
 void exc_sv_copy(void *dst, int dst_cap, EXC_String_View sv);
 
+typedef struct {
+    char *str;
+    int   size;
+    int   capacity;
+} EXC_String_Builder;
+
+void exc_string_builder_free(EXC_String_Builder *b);
+void exc_string_builder_clear(EXC_String_Builder *b);
+void exc_string_builder_append_cstr(EXC_String_Builder *b, char *s);
+void exc_string_builder_append_string_view(EXC_String_Builder *b, EXC_String_View s);
+void exc_string_builder_copy(EXC_String_Builder *b, char *dst, bool nullterm);
+
+EXC_String_View exc_string_builder_as_string_view(EXC_String_Builder *b);
+
 #endif // EXC_STRING
 
 #ifdef EXC_STRING_IMPLEMENTATION
 
 #include <ctype.h>
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 
 EXC_String_View exc_sv_from_cstr(char *begin, int len)
 {
-    if (len == 0) {
+    if (len < 1) {
         len = strlen(begin);
     }
     return (EXC_String_View) { begin, len };
@@ -77,6 +94,50 @@ void exc_sv_copy(void *dst, int dst_cap, EXC_String_View sv)
 {
     int n = sv.len > dst_cap ? dst_cap : sv.len;
     memcpy(dst, sv.begin, n);
+}
+
+void exc_string_builder_free(EXC_String_Builder *b)
+{
+    if (b->str != NULL) free(b->str);
+    b->str = NULL;
+    b->size = 0;
+    b->capacity = 0;
+}
+
+void exc_string_builder_clear(EXC_String_Builder *b)
+{
+    if (b->size > 0) b->str[0] = '\0';
+    b->size = 0;
+}
+
+void exc_string_builder_append_cstr(EXC_String_Builder *b, char *s)
+{
+    exc_string_builder_append_string_view(b, exc_sv_from_cstr(s, 0));
+}
+
+void exc_string_builder_append_string_view(EXC_String_Builder *b, EXC_String_View s)
+{
+    int req_cap = b->size + s.len + 1;
+    if (req_cap > b->capacity) {
+        void *p = realloc(b->str, req_cap);
+        if (!p) exit(ENOMEM);
+        b->str = (char*)p;
+        b->capacity = req_cap;
+    }
+    memcpy(b->str + b->size, s.begin, s.len);
+    b->size += s.len;
+    b->str[b->size] = '\0';
+}
+
+void exc_string_builder_copy(EXC_String_Builder *b, char *dst, bool nullterm)
+{
+    memcpy(dst, b->str, b->size);
+    if (nullterm) dst[b->size] = '\0';
+}
+
+EXC_String_View exc_string_builder_as_string_view(EXC_String_Builder *b)
+{
+    return (EXC_String_View) { b->str, b->size };
 }
 
 #endif //EXC_STRING_IMPLEMENTATION
