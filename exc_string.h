@@ -23,7 +23,8 @@ EXC_String_View exc_sv_trim_space_left(EXC_String_View sv);
 EXC_String_View exc_sv_trim_space_right(EXC_String_View sv);
 
 int exc_sv_index_of(EXC_String_View sv, char c);
-int exc_sv_parse_number(EXC_String_View sv, long long *n, int base);
+int exc_sv_parse_llong(EXC_String_View sv, long long *n, int base);
+int exc_sv_parse_ullong(EXC_String_View sv, unsigned long long *n, int base);
 
 void exc_sv_copy(void *dst, int dst_cap, EXC_String_View sv, bool nullterm);
 
@@ -47,6 +48,7 @@ EXC_String_View exc_string_builder_as_string_view(EXC_String_Builder *b);
 
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -92,16 +94,48 @@ int exc_sv_index_of(EXC_String_View sv, char c)
     return -1;
 }
 
-int exc_sv_parse_number(EXC_String_View sv, long long *n, int base)
+int exc_sv_parse_llong(EXC_String_View sv, long long *n, int base)
 {
+    *n = 0;
+
     sv = exc_sv_trim_space(sv);
     char buff[32];
-    char *end;
-    if ((unsigned long)exc_sv_size(sv) > (sizeof(buff) - 1)) return 1;
+
+    if ((unsigned long)exc_sv_size(sv) > (sizeof(buff) - 1)) {
+        return 1;
+    }
+
     exc_sv_copy(buff, sizeof(buff), sv, true);
     errno = 0;
-    long long res = strtoll(buff, &end, base);
-    if (errno != 0) return 1;
+    long long res = strtoll(buff, NULL, base);
+
+    if (res == LLONG_MAX || res == LLONG_MIN || errno != 0) {
+        return 1;
+    }
+
+    *n = res;
+    return 0;
+}
+
+int exc_sv_parse_ullong(EXC_String_View sv, unsigned long long *n, int base)
+{
+    *n = 0;
+
+    sv = exc_sv_trim_space(sv);
+    char buff[32];
+
+    if ((unsigned long)exc_sv_size(sv) > (sizeof(buff) - 1)) {
+        return 1;
+    }
+
+    exc_sv_copy(buff, sizeof(buff), sv, true);
+    errno = 0;
+    unsigned long long res = strtoull(buff, NULL, base);
+
+    if (res == ULLONG_MAX || errno != 0)  {
+        return 1;
+    }
+
     *n = res;
     return 0;
 }
