@@ -9,6 +9,12 @@ typedef struct {
     int   len;
 } EXC_String_View;
 
+typedef struct {
+    char *str;
+    int   size;
+    int   capacity;
+} EXC_String_Builder;
+
 #define EXC_SV_PRINTF_FMT "%.*s"
 #define EXC_SV_PRINTF_ARGS(sv) (sv).len, (sv).begin
 
@@ -17,30 +23,19 @@ typedef struct {
 #define exc_sv_size(sv) ((((sv).begin) + (sv).len) - (sv).begin)
 
 EXC_String_View exc_sv_from_cstr(char *str, int len);
-
 EXC_String_View exc_sv_trim_space(EXC_String_View sv);
 EXC_String_View exc_sv_trim_space_left(EXC_String_View sv);
 EXC_String_View exc_sv_trim_space_right(EXC_String_View sv);
-
-int exc_sv_index_of(EXC_String_View sv, char c);
-int exc_sv_parse_llong(EXC_String_View sv, long long *n, int base);
-int exc_sv_parse_ullong(EXC_String_View sv, unsigned long long *n, int base);
-
-void exc_sv_copy(void *dst, int dst_cap, EXC_String_View sv, bool nullterm);
-
-typedef struct {
-    char *str;
-    int   size;
-    int   capacity;
-} EXC_String_Builder;
-
-void exc_string_builder_free(EXC_String_Builder *b);
-void exc_string_builder_clear(EXC_String_Builder *b);
-void exc_string_builder_append_cstr(EXC_String_Builder *b, char *s);
-void exc_string_builder_append_string_view(EXC_String_Builder *b, EXC_String_View s);
-void exc_string_builder_copy(EXC_String_Builder *b, char *dst, bool nullterm);
-
-EXC_String_View exc_string_builder_as_string_view(EXC_String_Builder *b);
+int             exc_sv_index_of(EXC_String_View sv, char c);
+int             exc_sv_parse_llong(EXC_String_View sv, long long *n, int base);
+int             exc_sv_parse_ullong(EXC_String_View sv, unsigned long long *n, int base);
+void            exc_sv_copy(void *dst, int dst_cap, EXC_String_View sv, bool nullterm);
+void            exc_sb_free(EXC_String_Builder *b);
+void            exc_sb_clear(EXC_String_Builder *b);
+EXC_String_View exc_sb_append_cstr(EXC_String_Builder *b, char *s);
+EXC_String_View exc_sb_append_string_view(EXC_String_Builder *b, EXC_String_View s);
+void            exc_sb_copy(EXC_String_Builder *b, char *dst, bool nullterm);
+EXC_String_View exc_sb_as_string_view(EXC_String_Builder *b);
 
 #endif // EXC_STRING
 
@@ -150,7 +145,7 @@ void exc_sv_copy(void *dst, int dst_cap, EXC_String_View sv, bool nullterm)
     }
 }
 
-void exc_string_builder_free(EXC_String_Builder *b)
+void exc_sb_free(EXC_String_Builder *b)
 {
     if (b->str != NULL) free(b->str);
     b->str = NULL;
@@ -158,18 +153,18 @@ void exc_string_builder_free(EXC_String_Builder *b)
     b->capacity = 0;
 }
 
-void exc_string_builder_clear(EXC_String_Builder *b)
+void exc_sb_clear(EXC_String_Builder *b)
 {
     if (b->size > 0) b->str[0] = '\0';
     b->size = 0;
 }
 
-void exc_string_builder_append_cstr(EXC_String_Builder *b, char *s)
+EXC_String_View exc_sb_append_cstr(EXC_String_Builder *b, char *s)
 {
-    exc_string_builder_append_string_view(b, exc_sv_from_cstr(s, 0));
+    return exc_sb_append_string_view(b, exc_sv_from_cstr(s, 0));
 }
 
-void exc_string_builder_append_string_view(EXC_String_Builder *b, EXC_String_View s)
+EXC_String_View exc_sb_append_string_view(EXC_String_Builder *b, EXC_String_View s)
 {
     int req_cap = b->size + s.len + 1;
     if (req_cap > b->capacity) {
@@ -179,17 +174,19 @@ void exc_string_builder_append_string_view(EXC_String_Builder *b, EXC_String_Vie
         b->capacity = req_cap;
     }
     memcpy(b->str + b->size, s.begin, s.len);
+    EXC_String_View sv = {b->str + b->size, s.len};
     b->size += s.len;
     b->str[b->size] = '\0';
+    return sv;
 }
 
-void exc_string_builder_copy(EXC_String_Builder *b, char *dst, bool nullterm)
+void exc_sb_copy(EXC_String_Builder *b, char *dst, bool nullterm)
 {
     memcpy(dst, b->str, b->size);
     if (nullterm) dst[b->size] = '\0';
 }
 
-EXC_String_View exc_string_builder_as_string_view(EXC_String_Builder *b)
+EXC_String_View exc_sb_as_string_view(EXC_String_Builder *b)
 {
     return (EXC_String_View) { b->str, b->size };
 }
