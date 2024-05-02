@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "exc_container.h"
+
 typedef struct {
     char *begin;
     int   len;
@@ -30,6 +32,7 @@ int             exc_sv_index_of(EXC_String_View sv, char c);
 int             exc_sv_parse_llong(EXC_String_View sv, long long *n, int base);
 int             exc_sv_parse_ullong(EXC_String_View sv, unsigned long long *n, int base);
 void            exc_sv_copy(void *dst, int dst_cap, EXC_String_View sv, bool nullterm);
+EXC_String_View exc_sv_copy_to_paged_buffer(EXC_Paged_Buffer *b, EXC_String_View sv);
 void            exc_sb_free(EXC_String_Builder *b);
 void            exc_sb_clear(EXC_String_Builder *b);
 EXC_String_View exc_sb_append_cstr(EXC_String_Builder *b, char *s);
@@ -143,6 +146,16 @@ void exc_sv_copy(void *dst, int dst_cap, EXC_String_View sv, bool nullterm)
     if (nullterm) {
         ((char*)(dst))[n] = '\0';
     }
+}
+
+EXC_String_View exc_sv_copy_to_paged_buffer(EXC_Paged_Buffer *b, EXC_String_View sv)
+{
+    char *tmp = exc_pb_get(b, sv.len);
+    if (tmp) {
+        exc_sv_copy(tmp, sv.len, sv, false);
+        return (EXC_String_View) {tmp, sv.len};
+    }
+    return (EXC_String_View) {NULL, 0};
 }
 
 void exc_sb_free(EXC_String_Builder *b)
